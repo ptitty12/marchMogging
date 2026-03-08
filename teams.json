@@ -1,0 +1,26 @@
+{
+    "East": {
+      "1": "Team E1", "2": "Team E2", "3": "Team E3", "4": "Team E4",
+      "5": "Team E5", "6": "Team E6", "7": "Team E7", "8": "Team E8",
+      "9": "Team E9", "10": "Team E10", "11": "Team E11", "12": "Team E12",
+      "13": "Team E13", "14": "Team E14", "15": "Team E15", "16": "Team E16"
+    },
+    "West": {
+      "1": "Team W1", "2": "Team W2", "3": "Team W3", "4": "Team W4",
+      "5": "Team W5", "6": "Team W6", "7": "Team W7", "8": "Team W8",
+      "9": "Team W9", "10": "Team W10", "11": "Team W11", "12": "Team W12",
+      "13": "Team W13", "14": "Team W14", "15": "Team W15", "16": "Team W16"
+    },
+    "South": {
+      "1": "Team S1", "2": "Team S2", "3": "Team S3", "4": "Team S4",
+      "5": "Team S5", "6": "Team S6", "7": "Team S7", "8": "Team S8",
+      "9": "Team S9", "10": "Team S10", "11": "Team S11", "12": "Team S12",
+      "13": "Team S13", "14": "Team S14", "15": "Team S15", "16": "Team S16"
+    },
+    "Midwest": {
+      "1": "Nebraska", "2": "Team M2", "3": "Team M3", "4": "Team M4",
+      "5": "Team M5", "6": "Team M6", "7": "Team M7", "8": "Team M8",
+      "9": "Team M9", "10": "Team M10", "11": "Team M11", "12": "Team M12",
+      "13": "Team M13", "14": "Team M14", "15": "Team M15", "16": "Team M16"
+    }
+  }
