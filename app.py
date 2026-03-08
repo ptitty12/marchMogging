@@ -125,4 +125,5 @@ def simulate_bracket():
     return jsonify(all_rounds_data)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # host='0.0.0.0' is required to expose the port outside the Docker container
+    app.run(host='0.0.0.0', port=5003, debug=False)
