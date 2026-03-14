@@ -2,54 +2,66 @@ from flask import Flask, jsonify, render_template
 import pandas as pd
 import json
 import random
+import os
+from utils.scoreBracket import score_roll_vs_actual 
 
 app = Flask(__name__)
 
-# Process raw Kaggle data on startup to get both win rates AND counts
+# --- Configuration & Data Loading ---
+OUTCOME_PATH = 'lastYearOutcome.json'
+compactResults = r"utils\MNCAATourneyCompactResults.csv"
+tourneySeeds = r"utils\MNCAATourneySeeds.csv"
+
+# Load static outcome for scoring
+with open(OUTCOME_PATH, 'r') as f:
+    last_year_data = json.load(f)
+
 def build_matrices():
     print("Building historical matrices from raw data...")
     try:
-        results = pd.read_csv('MNCAATourneyCompactResults.csv')
-        seeds = pd.read_csv('MNCAATourneySeeds.csv')
-    except FileNotFoundError:
-        print("Error: Missing Kaggle CSV files in root directory.")
+        results = pd.read_csv(compactResults)
+        seeds = pd.read_csv(tourneySeeds)
+        
+        seeds['SeedNum'] = seeds['Seed'].apply(lambda x: int(x[1:3]))
+        df = results[['Season', 'WTeamID', 'LTeamID']].copy()
+        
+        # Merge Winner Seeds
+        df = df.merge(seeds[['Season', 'TeamID', 'SeedNum']], left_on=['Season', 'WTeamID'], right_on=['Season', 'TeamID'])
+        df.rename(columns={'SeedNum': 'WSeed'}, inplace=True)
+        df.drop('TeamID', axis=1, inplace=True)
+        
+        # Merge Loser Seeds
+        df = df.merge(seeds[['Season', 'TeamID', 'SeedNum']], left_on=['Season', 'LTeamID'], right_on=['Season', 'TeamID'])
+        df.rename(columns={'SeedNum': 'LSeed'}, inplace=True)
+        df.drop('TeamID', axis=1, inplace=True)
+        
+        # Aggregate Win Rate and Game Count
+        df_winners = pd.DataFrame({'TeamSeed': df['WSeed'], 'OpponentSeed': df['LSeed'], 'Win': 1})
+        df_losers = pd.DataFrame({'TeamSeed': df['LSeed'], 'OpponentSeed': df['WSeed'], 'Win': 0})
+        all_matchups = pd.concat([df_winners, df_losers], ignore_index=True)
+        
+        stats = all_matchups.groupby(['TeamSeed', 'OpponentSeed']).agg(
+            WinRate=('Win', 'mean'),
+            GamesPlayed=('Win', 'count')
+        ).reset_index()
+        
+        win_matrix = stats.pivot(index='TeamSeed', columns='OpponentSeed', values='WinRate').fillna('-')
+        count_matrix = stats.pivot(index='TeamSeed', columns='OpponentSeed', values='GamesPlayed').fillna(0)
+        
+        # Convert index/columns to strings for JSON serialization
+        win_matrix.columns = win_matrix.columns.astype(str)
+        win_matrix.index = win_matrix.index.astype(str)
+        count_matrix.columns = count_matrix.columns.astype(str)
+        count_matrix.index = count_matrix.index.astype(str)
+        
+        return win_matrix, count_matrix
+    except Exception as e:
+        print(f"Error building matrices: {e}")
         return None, None
 
-    # Clean and merge
-    seeds['SeedNum'] = seeds['Seed'].apply(lambda x: int(x[1:3]))
-    
-    df = results[['Season', 'WTeamID', 'LTeamID']].copy()
-    df = df.merge(seeds[['Season', 'TeamID', 'SeedNum']], left_on=['Season', 'WTeamID'], right_on=['Season', 'TeamID'])
-    df.rename(columns={'SeedNum': 'WSeed'}, inplace=True)
-    df.drop('TeamID', axis=1, inplace=True)
-    
-    df = df.merge(seeds[['Season', 'TeamID', 'SeedNum']], left_on=['Season', 'LTeamID'], right_on=['Season', 'TeamID'])
-    df.rename(columns={'SeedNum': 'LSeed'}, inplace=True)
-    df.drop('TeamID', axis=1, inplace=True)
-    
-    # Calculate both perspectives
-    df_winners = pd.DataFrame({'TeamSeed': df['WSeed'], 'OpponentSeed': df['LSeed'], 'Win': 1})
-    df_losers = pd.DataFrame({'TeamSeed': df['LSeed'], 'OpponentSeed': df['WSeed'], 'Win': 0})
-    all_matchups = pd.concat([df_winners, df_losers], ignore_index=True)
-    
-    # Aggregate Win Rate and Game Count
-    stats = all_matchups.groupby(['TeamSeed', 'OpponentSeed']).agg(
-        WinRate=('Win', 'mean'),
-        GamesPlayed=('Win', 'count')
-    ).reset_index()
-    
-    win_matrix = stats.pivot(index='TeamSeed', columns='OpponentSeed', values='WinRate').fillna('-')
-    count_matrix = stats.pivot(index='TeamSeed', columns='OpponentSeed', values='GamesPlayed').fillna(0)
-    
-    # Convert index/columns to strings so JSON serialization handles them perfectly
-    win_matrix.columns = win_matrix.columns.astype(str)
-    win_matrix.index = win_matrix.index.astype(str)
-    count_matrix.columns = count_matrix.columns.astype(str)
-    count_matrix.index = count_matrix.index.astype(str)
-    
-    return win_matrix, count_matrix
-
 win_matrix, count_matrix = build_matrices()
+
+# --- Simulation Logic ---
 
 def get_win_probability(seed1, seed2):
     if seed1 == seed2:
@@ -60,7 +72,7 @@ def get_win_probability(seed1, seed2):
             prob = 0.50 + ((seed2 - seed1) * 0.03)
         else:
             prob = float(val)
-    except KeyError:
+    except:
         prob = 0.50 + ((seed2 - seed1) * 0.03)
     return max(0.01, min(0.99, prob))
 
@@ -86,16 +98,20 @@ def generate_starting_field():
             team_id += 1
     return field
 
+# --- Routes ---
+
 @app.route('/')
 def home():
     return render_template('index.html')
 
 @app.route('/api/matrix')
 def get_matrix():
-    # Send both matrices back to the frontend
+    """Missing route that caused the 404"""
+    if win_matrix is None or count_matrix is None:
+        return jsonify({"error": "Matrices not initialized"}), 500
     return jsonify({
-        "win_rates": win_matrix.to_dict() if win_matrix is not None else {},
-        "counts": count_matrix.to_dict() if count_matrix is not None else {}
+        "win_rates": win_matrix.to_dict(),
+        "counts": count_matrix.to_dict()
     })
 
 @app.route('/api/bracket')
@@ -106,9 +122,7 @@ def simulate_bracket():
     for r in range(6):
         next_round = []
         for i in range(0, len(current_round), 2):
-            t1 = current_round[i]
-            t2 = current_round[i+1]
-            
+            t1, t2 = current_round[i], current_round[i+1]
             prob = get_win_probability(t1['seed'], t2['seed'])
             winner = t1 if random.random() < prob else t2
             
@@ -122,8 +136,21 @@ def simulate_bracket():
         all_rounds_data.append(next_round)
         current_round = next_round
 
-    return jsonify(all_rounds_data)
+    # Scoring
+    score, breakdown = score_roll_vs_actual(all_rounds_data, last_year_data)
+
+    response_data = {
+        "bracket": all_rounds_data,
+        "score_data": {
+            "total_score": score,
+            "breakdown": breakdown
+        }
+    }
+
+    with open('currentRoll.json', "w") as json_file:
+        json.dump(response_data, json_file)
+
+    return jsonify(response_data)
 
 if __name__ == '__main__':
-    # host='0.0.0.0' is required to expose the port outside the Docker container
     app.run(host='0.0.0.0', port=5003, debug=False)
