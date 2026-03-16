@@ -98,21 +98,8 @@
     </div>
 
     <h1>🏀 The March Moggness Simulator 🏀</h1>
-        <p class="subtitle">
-            Embrace chaos, generate brackets based on unpredictability. 
-            View methodology <a href="https://ptaylor.dev/2026/03/14/march-moggness-bracket-generator/">here</a>
-        </p>
-    <div id="score-banner">
-        <div class="score-card">
-            <span class="score-label">2025 Performance:</span>
-            <span id="total-score" class="score-value">0</span>
-            <span id="percentile-wrapper" style="border-left: 1px solid var(--border-color); padding-left: 15px; text-align: left;">
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Percentile</div>
-                <div id="percentile-value" style="font-size: 1.3rem; font-weight: bold;">0%</div>
-            </span>
-        </div>
-    </div>
-
+    <p class="subtitle"></p>
+    
     <div class="controls">
         <button onclick="fetchAndRenderBracket()">Roll the Dice! 🎲</button>
         <button class="secondary" onclick="openMatrix()">📉 View Win-Rate Matrix</button>
@@ -204,6 +191,22 @@
                     </div>
                 </div>
             `;
+        }
+
+        function getPercentile(score) {
+            const distribution = [
+                { score: 1880, pct: 100.0 }, { score: 1840, pct: 99.9 }, { score: 1660, pct: 99.0 },
+                { score: 1480, pct: 95.0 }, { score: 1240, pct: 90.0 }, { score: 920,  pct: 75.0 },
+                { score: 760,  pct: 50.0 }, { score: 440,  pct: 25.0 }, { score: 280,  pct: 10.0 }, { score: 0, pct: 0.0 }
+            ];
+            for (let i = 0; i < distribution.length; i++) {
+                if (score >= distribution[i].score) {
+                    if (i === 0) return 100;
+                    const high = distribution[i-1], low = distribution[i];
+                    return (low.pct + ((score - low.score) / (high.score - low.score)) * (high.pct - low.pct)).toFixed(1);
+                }
+            }
+            return 0;
         }
 
         function renderBracket(data) {
