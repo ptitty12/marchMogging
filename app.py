@@ -2,73 +2,95 @@ from flask import Flask, jsonify, render_template
 import pandas as pd
 import json
 import random
+import sqlite3
+import os
+from datetime import datetime
+from utils.scoreBracket import score_roll_vs_actual 
 
 app = Flask(__name__)
 
-# Process raw Kaggle data on startup to get both win rates AND counts
-def build_matrices():
-    try:
-        results = pd.read_csv('MNCAATourneyCompactResults.csv')
-        seeds = pd.read_csv('MNCAATourneySeeds.csv')
-    except FileNotFoundError:
-        print("Error: Missing Kaggle CSV files in root directory.")
-        return None, None
+# --- CONFIGURATION & PATHS ---
+basedir = os.path.abspath(os.path.dirname(__file__))
+DB_PATH = os.path.join(basedir, 'leaderboard.db')
+OUTCOME_PATH = os.path.join(basedir, 'lastYearOutcome.json')
+# Use os.path.join to handle backslashes/forward slashes automatically
+COMPACT_RESULTS = os.path.join(basedir, 'utils', 'MNCAATourneyCompactResults.csv')
+TOURNEY_SEEDS = os.path.join(basedir, 'utils', 'MNCAATourneySeeds.csv')
 
-    # Clean and merge
-    seeds['SeedNum'] = seeds['Seed'].apply(lambda x: int(x[1:3]))
-    
-    df = results[['Season', 'WTeamID', 'LTeamID']].copy()
-    df = df.merge(seeds[['Season', 'TeamID', 'SeedNum']], left_on=['Season', 'WTeamID'], right_on=['Season', 'TeamID'])
-    df.rename(columns={'SeedNum': 'WSeed'}, inplace=True)
-    df.drop('TeamID', axis=1, inplace=True)
-    
-    df = df.merge(seeds[['Season', 'TeamID', 'SeedNum']], left_on=['Season', 'LTeamID'], right_on=['Season', 'TeamID'])
-    df.rename(columns={'SeedNum': 'LSeed'}, inplace=True)
-    df.drop('TeamID', axis=1, inplace=True)
-    
-    # Calculate both perspectives
-    df_winners = pd.DataFrame({'TeamSeed': df['WSeed'], 'OpponentSeed': df['LSeed'], 'Win': 1})
-    df_losers = pd.DataFrame({'TeamSeed': df['LSeed'], 'OpponentSeed': df['WSeed'], 'Win': 0})
-    all_matchups = pd.concat([df_winners, df_losers], ignore_index=True)
-    
-    # Aggregate Win Rate and Game Count
-    stats = all_matchups.groupby(['TeamSeed', 'OpponentSeed']).agg(
-        WinRate=('Win', 'mean'),
-        GamesPlayed=('Win', 'count')
-    ).reset_index()
-    
-    win_matrix = stats.pivot(index='TeamSeed', columns='OpponentSeed', values='WinRate').fillna('-')
-    count_matrix = stats.pivot(index='TeamSeed', columns='OpponentSeed', values='GamesPlayed').fillna(0)
-    
-    # Convert index/columns to strings so JSON serialization handles them perfectly
-    win_matrix.columns = win_matrix.columns.astype(str)
-    win_matrix.index = win_matrix.index.astype(str)
-    count_matrix.columns = count_matrix.columns.astype(str)
-    count_matrix.index = count_matrix.index.astype(str)
-    
-    return win_matrix, count_matrix
+# --- DATABASE SETUP ---
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS leaderboard 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  score INTEGER, 
+                  bracket_json TEXT, 
+                  timestamp DATETIME)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# --- DATA LOADING ---
+try:
+    with open(OUTCOME_PATH, 'r') as f:
+        last_year_data = json.load(f)
+except FileNotFoundError:
+    print(f"Error: {OUTCOME_PATH} not found.")
+    last_year_data = []
+
+def build_matrices():
+    print("Building historical matrices...")
+    try:
+        results = pd.read_csv(COMPACT_RESULTS)
+        seeds = pd.read_csv(TOURNEY_SEEDS)
+        
+        seeds['SeedNum'] = seeds['Seed'].apply(lambda x: int(x[1:3]))
+        df = results[['Season', 'WTeamID', 'LTeamID']].copy()
+        
+        # Merge Winner and Loser Seeds
+        df = df.merge(seeds[['Season', 'TeamID', 'SeedNum']], left_on=['Season', 'WTeamID'], right_on=['Season', 'TeamID'])
+        df.rename(columns={'SeedNum': 'WSeed'}, inplace=True)
+        df.drop('TeamID', axis=1, inplace=True)
+        df = df.merge(seeds[['Season', 'TeamID', 'SeedNum']], left_on=['Season', 'LTeamID'], right_on=['Season', 'TeamID'])
+        df.rename(columns={'SeedNum': 'LSeed'}, inplace=True)
+        df.drop('TeamID', axis=1, inplace=True)
+        
+        df_winners = pd.DataFrame({'TeamSeed': df['WSeed'], 'OpponentSeed': df['LSeed'], 'Win': 1})
+        df_losers = pd.DataFrame({'TeamSeed': df['LSeed'], 'OpponentSeed': df['WSeed'], 'Win': 0})
+        all_matchups = pd.concat([df_winners, df_losers], ignore_index=True)
+        
+        stats = all_matchups.groupby(['TeamSeed', 'OpponentSeed']).agg(WinRate=('Win', 'mean'), GamesPlayed=('Win', 'count')).reset_index()
+        win_matrix = stats.pivot(index='TeamSeed', columns='OpponentSeed', values='WinRate').fillna('-')
+        count_matrix = stats.pivot(index='TeamSeed', columns='OpponentSeed', values='GamesPlayed').fillna(0)
+        
+        # Serialization prep
+        win_matrix.columns = win_matrix.columns.astype(str)
+        win_matrix.index = win_matrix.index.astype(str)
+        count_matrix.columns = count_matrix.columns.astype(str)
+        count_matrix.index = count_matrix.index.astype(str)
+        
+        return win_matrix, count_matrix
+    except Exception as e:
+        print(f"Matrix error: {e}")
+        return None, None
 
 win_matrix, count_matrix = build_matrices()
 
 # --- HELPERS ---
 def get_win_probability(s1, s2):
+    if win_matrix is None:
+        return 0.50 + ((s2 - s1) * 0.03)
+    if s1 == s2:
+        return 0.50
     try:
         val = win_matrix.loc[str(s1), str(s2)]
-        prob = float(val) if val != '-' else 0.50 + ((s2 - s1) * 0.03)
-    except:
-        prob = 0.50 + ((s2 - s1) * 0.03)
-# --- Simulation Logic ---
-
-# --- HELPERS ---
-def get_win_probability(s1, s2):
-    try:
-        val = win_matrix.loc[str(seed1), str(seed2)]
         if pd.isna(val) or val == '-':
-            prob = 0.50 + ((seed2 - seed1) * 0.03)
+            prob = 0.50 + ((s2 - s1) * 0.03)
         else:
             prob = float(val)
     except KeyError:
-        prob = 0.50 + ((seed2 - seed1) * 0.03)
+        prob = 0.50 + ((s2 - s1) * 0.03)
     return max(0.01, min(0.99, prob))
 
 def generate_starting_field():
@@ -82,42 +104,58 @@ def generate_starting_field():
             team_id += 1
     return field
 
+# --- ROUTES ---
 @app.route('/')
 def home():
     return render_template('index.html')
 
 @app.route('/api/matrix')
 def get_matrix():
-    # Send both matrices back to the frontend
-    return jsonify({
-        "win_rates": win_matrix.to_dict() if win_matrix is not None else {},
-        "counts": count_matrix.to_dict() if count_matrix is not None else {}
-    })
+    if win_matrix is None:
+        return jsonify({"error": "Data unavailable"}), 500
+    return jsonify({"win_rates": win_matrix.to_dict(), "counts": count_matrix.to_dict()})
+
+@app.route('/api/leaderboard')
+def get_leaderboard():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT score, bracket_json, timestamp FROM leaderboard ORDER BY score DESC LIMIT 3")
+    rows = c.fetchall()
+    conn.close()
+    return jsonify([{"score": r[0], "bracket": json.loads(r[1]), "date": r[2]} for r in rows])
 
 @app.route('/api/bracket')
 def simulate_bracket():
     current_round = generate_starting_field()
     all_rounds_data = [current_round]
+    
     for r in range(6):
         next_round = []
         for i in range(0, len(current_round), 2):
-            t1 = current_round[i]
-            t2 = current_round[i+1]
-            
+            t1, t2 = current_round[i], current_round[i+1]
             prob = get_win_probability(t1['seed'], t2['seed'])
             winner = t1 if random.random() < prob else t2
-            
-            t1['isWinner'] = (winner['id'] == t1['id'])
-            t2['isWinner'] = (winner['id'] == t2['id'])
-            
-            next_team = winner.copy()
-            next_team['isWinner'] = False
-            next_round.append(next_team)
-            
+            t1['isWinner'], t2['isWinner'] = (winner['id'] == t1['id']), (winner['id'] == t2['id'])
+            nt = winner.copy()
+            nt['isWinner'] = False
+            next_round.append(nt)
         all_rounds_data.append(next_round)
         current_round = next_round
 
-    return jsonify(all_rounds_data)
+    score, breakdown = score_roll_vs_actual(all_rounds_data, last_year_data)
+
+    # Save to Global Moggerboard
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO leaderboard (score, bracket_json, timestamp) VALUES (?, ?, ?)",
+              (score, json.dumps(all_rounds_data), datetime.now().strftime("%Y-%m-%d %H:%M")))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "bracket": all_rounds_data, 
+        "score_data": {"total_score": score, "breakdown": breakdown}
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5003, debug=False)
