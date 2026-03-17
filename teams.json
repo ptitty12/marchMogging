@@ -1,26 +1,74 @@
 {
-    "East": {
-      "1": "Team E1", "2": "Team E2", "3": "Team E3", "4": "Team E4",
-      "5": "Team E5", "6": "Team E6", "7": "Team E7", "8": "Team E8",
-      "9": "Team E9", "10": "Team E10", "11": "Team E11", "12": "Team E12",
-      "13": "Team E13", "14": "Team E14", "15": "Team E15", "16": "Team E16"
-    },
-    "West": {
-      "1": "Team W1", "2": "Team W2", "3": "Team W3", "4": "Team W4",
-      "5": "Team W5", "6": "Team W6", "7": "Team W7", "8": "Team W8",
-      "9": "Team W9", "10": "Team W10", "11": "Team W11", "12": "Team W12",
-      "13": "Team W13", "14": "Team W14", "15": "Team W15", "16": "Team W16"
-    },
-    "South": {
-      "1": "Team S1", "2": "Team S2", "3": "Team S3", "4": "Team S4",
-      "5": "Team S5", "6": "Team S6", "7": "Team S7", "8": "Team S8",
-      "9": "Team S9", "10": "Team S10", "11": "Team S11", "12": "Team S12",
-      "13": "Team S13", "14": "Team S14", "15": "Team S15", "16": "Team S16"
-    },
-    "Midwest": {
-      "1": "Team M1", "2": "Team M2", "3": "Team M3", "4": "Team M4",
-      "5": "Team M5", "6": "Team M6", "7": "Team M7", "8": "Team M8",
-      "9": "Team M9", "10": "Team M10", "11": "Team M11", "12": "Team M12",
-      "13": "Team M13", "14": "Team M14", "15": "Team M15", "16": "Team M16"
-    }
+  "East": {
+    "1": "Duke",
+    "2": "UConn",
+    "3": "Michigan St.",
+    "4": "Kansas",
+    "5": "St. John's",
+    "6": "Louisville",
+    "7": "UCLA",
+    "8": "Ohio St.",
+    "9": "TCU",
+    "10": "UCF",
+    "11": "South Florida",
+    "12": "N. Iowa",
+    "13": "Cal Baptist",
+    "14": "N. Dakota St.",
+    "15": "Furman",
+    "16": "Siena"
+  },
+  "South": {
+    "1": "Florida",
+    "2": "Houston",
+    "3": "Illinois",
+    "4": "Nebraska",
+    "5": "Vanderbilt",
+    "6": "N. Carolina",
+    "7": "Saint Mary's",
+    "8": "Clemson",
+    "9": "Iowa",
+    "10": "Texas A&M",
+    "11": "VCU",
+    "12": "McNeese",
+    "13": "Troy",
+    "14": "Penn",
+    "15": "Idaho",
+    "16": "Prairie View / Lehigh"
+  },
+  "West": {
+    "1": "Arizona",
+    "2": "Purdue",
+    "3": "Gonzaga",
+    "4": "Arkansas",
+    "5": "Wisconsin",
+    "6": "BYU",
+    "7": "Miami",
+    "8": "Villanova",
+    "9": "Utah St.",
+    "10": "Missouri",
+    "11": "Texas / NC State",
+    "12": "High Point",
+    "13": "Hawaii",
+    "14": "Kennesaw St.",
+    "15": "Queens",
+    "16": "LIU"
+  },
+  "Midwest": {
+    "1": "Michigan",
+    "2": "Iowa St.",
+    "3": "Virginia",
+    "4": "Alabama",
+    "5": "Texas Tech",
+    "6": "Tennessee",
+    "7": "Kentucky",
+    "8": "Georgia",
+    "9": "Saint Louis",
+    "10": "Santa Clara",
+    "11": "Miami (Ohio) / SMU",
+    "12": "Akron",
+    "13": "Hofstra",
+    "14": "Wright St.",
+    "15": "Tennessee St.",
+    "16": "UMBC / Howard"
   }
+}
