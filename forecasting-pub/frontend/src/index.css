@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/* Ink & surface tokens (light selected, dark selected — not auto-flipped) */
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb;
+  --page: #f4f4f1;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --line: #e1e0d9;
+  --hairline: rgba(11, 11, 11, 0.1);
+  --brand: #3dcd58;      /* Schneider "Life is On" green — accents/marks only */
+  --brand-ink: #0e6f2b;  /* green that passes as text on light surface */
+  --brand-wash: #e9f9ec;
+  --pos: #006300;        /* delta up-good text, light */
+  --neg: #c43a3a;
+  --neg-wash: #fbeeee;
+  --edit-wash: #fffdf2;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1a1a19;
+    --page: #0d0d0d;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --line: #2c2c2a;
+    --hairline: rgba(255, 255, 255, 0.1);
+    --brand: #3dcd58;
+    --brand-ink: #5fdd77;
+    --brand-wash: #12291a;
+    --pos: #0ca30c;
+    --neg: #e66767;
+    --neg-wash: #2e1a1a;
+    --edit-wash: #24231c;
+  }
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-page: var(--page);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-hairline: var(--hairline);
+  --color-brand: var(--brand);
+  --color-brandink: var(--brand-ink);
+  --color-brandwash: var(--brand-wash);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-negwash: var(--neg-wash);
+  --color-editwash: var(--edit-wash);
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  background-color: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numeric grid columns must align vertically */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
